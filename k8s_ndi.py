@@ -22,6 +22,8 @@ TIME = ["1 minute ago", "15 minutes ago"]
 NAMESPACE = json.loads(configbyssh(HOST_INFO, "kubectl get ns -ojson"))
 ENDPOINTS = json.loads(configbyssh(HOST_INFO, "kubectl get endpointslices -A -ojson"))
 
+# TODO: get service relationship and service health score (e.g. from Calisti)
+
 
 def get_ns_list():
     """
@@ -112,7 +114,7 @@ def main():
         """
         This function is to set svc list
         """
-        svc_list = get_svc_list(cbl_ns1.get())
+        svc_list = get_svc_list(cbl_ns1.get())  # TODO: program svc list to reflect health score
         cbl_svc1["values"] = ["                  ------  Please select a service  ------"] + svc_list
         cbl_svc1.current(0)
         cbl_pod1["values"] = ["                    ------  Please select a pod  ------"]
@@ -122,7 +124,7 @@ def main():
         """
         This function is to set svc list
         """
-        svc_list = get_svc_list(cbl_ns2.get())
+        svc_list = get_svc_list(cbl_ns2.get())  # TODO: program svc list to reflect relationship and health score
         cbl_svc2["values"] = ["                  ------  Please select a service  ------"] + svc_list
         cbl_svc2.current(0)
         cbl_pod2["values"] = ["                    ------  Please select a pod  ------"]
@@ -138,7 +140,7 @@ def main():
         pod_list = []
         for ep in ep_list:
             pod_list.append(ep["name"] + " @ " + ep["nodeName"] + " (" + ep["address"] + ")")
-        cbl_pod1["values"] = pod_list
+        cbl_pod1["values"] = pod_list  # TODO: program pod list to reflect health score
         cbl_pod1.current(0)
 
     def set_pod_list2(event):
@@ -150,8 +152,10 @@ def main():
         pod_list = []
         for ep in ep_list:
             pod_list.append(ep["name"] + " @ " + ep["nodeName"] + " (" + ep["address"] + ")")
-        cbl_pod2["values"] = pod_list
+        cbl_pod2["values"] = pod_list  # TODO: program pod list to reflect health score
         cbl_pod2.current(0)
+        cbl_port["values"] = ["                 ------  Please select a dest port  ------"]
+        cbl_port.current(0)
 
         dstport_list = []
         for port in port_list:
