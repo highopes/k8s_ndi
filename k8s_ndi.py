@@ -18,11 +18,52 @@ import json
 # HOST_INFO import from configbyssh module
 
 # Load kubernetes status (from live system or a TSDB)
-TIME = ["1 minute ago", "15 minutes ago"]
-NAMESPACE = json.loads(configbyssh(HOST_INFO, "kubectl get ns -ojson"))
-ENDPOINTS = json.loads(configbyssh(HOST_INFO, "kubectl get endpointslices -A -ojson"))
+TIME = ["1 minute ago", "15 minutes ago", "♥89%√   myweb", "♥--%--   mydb", "♥--%--   mysql"]
+try:
+    NAMESPACE = json.loads(configbyssh(HOST_INFO, "kubectl get ns -ojson"))
+    ENDPOINTS = json.loads(configbyssh(HOST_INFO, "kubectl get endpointslices -A -ojson"))
+except:
+    tk.messagebox.showerror(title="Initialization Failure",
+                            message="Check if you can connect to your kubernetes system.")
+    exit(1)
 
 # TODO: get service relationship and service health score (e.g. from Calisti)
+SVC_RELATION = {
+    "smm-demo": {
+        "analytics": ["bookings"],
+        "bookings": ["analytics"],
+        "catalog": ["movies", "frontpage"],
+        "database": ["movies"],
+        "frontpage": ["catalog"],
+        "movies": ["catalog", "mysql", "database"],
+        "mysql": ["movies"],
+        "notifications": ["payments"],
+        "payments": ["notifications"],
+        "postgresql": ["frontpage"]
+    },
+    "test02": {
+        "blogsvc": ["dbsvc"],
+        "dbsvc": ["blogsvc"]
+    }
+}
+SVC_HEALTH = {
+    "smm-demo": {
+        "analytics": "100",
+        "bookings": "100",
+        "catalog": "99",
+        "database": "100",
+        "frontpage": "5",
+        "movies": "11",
+        "mysql": "100",
+        "notifications": "100",
+        "payments": "100",
+        "postgresql": "100"
+    },
+    "test02": {
+        "blogsvc": "100",
+        "dbsvc": "100"
+    }
+}
 
 
 def get_ns_list():
@@ -114,8 +155,18 @@ def main():
         """
         This function is to set svc list
         """
-        svc_list = get_svc_list(cbl_ns1.get())  # TODO: program svc list to reflect health score
-        cbl_svc1["values"] = ["                  ------  Please select a service  ------"] + svc_list
+        ns = cbl_ns1.get()
+        svc_list = get_svc_list(ns)
+        new_svc_list = []
+
+        for svc_name in svc_list:
+            health_mark = "♥ ---%     "
+            if SVC_HEALTH.get(ns):
+                if SVC_HEALTH[ns].get(svc_name):
+                    health_mark = "♥ " + "%03d" % int(SVC_HEALTH[ns][svc_name]) + "%     "
+            new_svc_list.append(health_mark + svc_name)
+
+        cbl_svc1["values"] = ["                  ------  Please select a service  ------"] + new_svc_list
         cbl_svc1.current(0)
         cbl_pod1["values"] = ["                    ------  Please select a pod  ------"]
         cbl_pod1.current(0)
@@ -124,8 +175,24 @@ def main():
         """
         This function is to set svc list
         """
-        svc_list = get_svc_list(cbl_ns2.get())  # TODO: program svc list to reflect relationship and health score
-        cbl_svc2["values"] = ["                  ------  Please select a service  ------"] + svc_list
+        ns = cbl_ns2.get()
+        svc_list = get_svc_list(ns)
+        new_svc_list = []
+
+        for svc_name in svc_list:
+            health_mark = "♥ ---%"
+            relation_mark = " --  "
+            if SVC_HEALTH.get(ns):
+                if SVC_HEALTH[ns].get(svc_name):
+                    health_mark = "♥ " + "%03d" % int(SVC_HEALTH[ns][svc_name]) + "%"
+            if SVC_RELATION.get(cbl_ns1.get()):
+                if SVC_RELATION[cbl_ns1.get()].get(cbl_svc1.get()[11:]):
+                    if svc_name in SVC_RELATION[cbl_ns1.get()][cbl_svc1.get()[11:]]:
+                        relation_mark = " √   "
+
+            new_svc_list.append(health_mark + relation_mark + svc_name)
+
+        cbl_svc2["values"] = ["                  ------  Please select a service  ------"] + new_svc_list
         cbl_svc2.current(0)
         cbl_pod2["values"] = ["                    ------  Please select a pod  ------"]
         cbl_pod2.current(0)
@@ -136,7 +203,7 @@ def main():
         """
         This function is to set pod list 1
         """
-        ep_list, port_list = get_ep_list(cbl_ns1.get(), cbl_svc1.get())
+        ep_list, port_list = get_ep_list(cbl_ns1.get(), cbl_svc1.get()[11:])
         pod_list = []
         for ep in ep_list:
             pod_list.append(ep["name"] + " @ " + ep["nodeName"] + " (" + ep["address"] + ")")
@@ -147,7 +214,7 @@ def main():
         """
         This function is to set pod list 2
         """
-        ep_list, port_list = get_ep_list(cbl_ns2.get(), cbl_svc2.get())
+        ep_list, port_list = get_ep_list(cbl_ns2.get(), cbl_svc2.get()[11:])
 
         pod_list = []
         for ep in ep_list:
@@ -185,7 +252,7 @@ def main():
 
     # Combo Box Lists on the left
     cbl_fr = ttk.Combobox(window, font=("Arial", 10), width=50)
-    cbl_fr["values"] = ["Internal service"]
+    cbl_fr["values"] = ["Internal service", "External", "NodePort service", "Load Balancer service"]  # TODO
     cbl_fr.current(0)
     cbl_fr.place(x=150, y=50, anchor='nw')
 
@@ -229,7 +296,7 @@ def main():
 
     # Combo Box Lists on the right
     cbl_to = ttk.Combobox(window, font=("Arial", 10), width=50)
-    cbl_to["values"] = ["Internal service"]
+    cbl_to["values"] = ["Internal service", "External", "NodePort service", "Load Balancer service"]  # TODO
     cbl_to.current(0)
     cbl_to.place(x=700, y=50, anchor='nw')
 
