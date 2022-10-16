@@ -18,14 +18,14 @@ import json
 # HOST_INFO import from configbyssh module
 
 # Load kubernetes status (from live system or a TSDB)
-TIME = ["1 minute ago", "15 minutes ago", "♥89%√   myweb", "♥--%--   mydb", "♥--%--   mysql"]
+TIME = ["1 minute ago", "15 minutes ago"]
 try:
     NAMESPACE = json.loads(configbyssh(HOST_INFO, "kubectl get ns -ojson"))
     ENDPOINTS = json.loads(configbyssh(HOST_INFO, "kubectl get endpointslices -A -ojson"))
 except:
     tk.messagebox.showerror(title="Initialization Failure",
                             message="Check if you can connect to your kubernetes system.")
-    exit(1)
+    exit(1)  # TODO: Load local test data instead of live system
 
 # TODO: get service relationship and service health score (e.g. from Calisti)
 SVC_RELATION = {
@@ -81,12 +81,14 @@ def get_svc_list(ns):
     This function returns service list based on specific namespace
     """
     svc_list = []
+    # use endpointslice as data source instead of service itself, reduce data capture time
     for slice in ENDPOINTS["items"]:
+        # match namespace AND have owner svc (some slices don't have owner svc, e.g. kubernetes svc)
         if slice["metadata"]["namespace"] == ns and slice["metadata"].get("ownerReferences"):
             svc_list.append(slice["metadata"]["ownerReferences"][0]["name"])
 
-    if not svc_list:
-        svc_list = ["                  ------  Please select a service  ------"]
+    # if not svc_list:  # if svc_list is empty (no svc in this ns)
+    #     svc_list = ["No customer service found"]
 
     return svc_list
 
@@ -98,13 +100,16 @@ def get_ep_list(ns, svc):
     ep_list = []
     dport_list = []
     for slice in ENDPOINTS["items"]:
-        if slice["metadata"]["namespace"] == ns and slice["metadata"]["ownerReferences"][0]["name"] == svc:
-            for ep in slice["endpoints"]:
-                ep_list.append(
-                    {"address": ep["addresses"][0], "nodeName": ep["nodeName"], "name": ep["targetRef"]["name"]})
-            for port in slice["ports"]:
-                dport_list.append({"port": str(port["port"]), "protocol": port["protocol"]})
-            return ep_list, dport_list
+        if slice["metadata"]["namespace"] == ns and slice["metadata"].get("ownerReferences"):
+            if slice["metadata"]["ownerReferences"][0]["name"] == svc:
+                for ep in slice["endpoints"]:
+                    ep_list.append(
+                        {"address": ep["addresses"][0], "nodeName": ep["nodeName"], "name": ep["targetRef"]["name"]})
+                for port in slice["ports"]:
+                    dport_list.append({"port": str(port["port"]), "protocol": port["protocol"]})
+                break
+
+    return ep_list, dport_list
 
 
 def main():
@@ -207,8 +212,9 @@ def main():
         pod_list = []
         for ep in ep_list:
             pod_list.append(ep["name"] + " @ " + ep["nodeName"] + " (" + ep["address"] + ")")
-        cbl_pod1["values"] = pod_list  # TODO: program pod list to reflect health score
-        cbl_pod1.current(0)
+        if pod_list:
+            cbl_pod1["values"] = pod_list  # TODO: program pod list to reflect health score
+            cbl_pod1.current(0)
 
     def set_pod_list2(event):
         """
@@ -219,8 +225,9 @@ def main():
         pod_list = []
         for ep in ep_list:
             pod_list.append(ep["name"] + " @ " + ep["nodeName"] + " (" + ep["address"] + ")")
-        cbl_pod2["values"] = pod_list  # TODO: program pod list to reflect health score
-        cbl_pod2.current(0)
+        if pod_list:
+            cbl_pod2["values"] = pod_list  # TODO: program pod list to reflect health score
+            cbl_pod2.current(0)
         cbl_port["values"] = ["                 ------  Please select a dest port  ------"]
         cbl_port.current(0)
 
