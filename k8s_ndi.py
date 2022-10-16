@@ -81,16 +81,13 @@ def get_svc_list(ns):
     This function returns service list based on specific namespace
     """
     svc_list = []
-    # use endpointslice as data source instead of service itself, reduce data capture time
+    # use endpointslice as data source instead of service itself, keep consistency and reduce data capture time
     for slice in ENDPOINTS["items"]:
-        # match namespace AND have owner svc (some slices don't have owner svc, e.g. kubernetes svc)
+        # match namespace AND have its owner svc (some slices don't have owner svc, e.g. kubernetes svc)
         if slice["metadata"]["namespace"] == ns and slice["metadata"].get("ownerReferences"):
             svc_list.append(slice["metadata"]["ownerReferences"][0]["name"])
 
-    # if not svc_list:  # if svc_list is empty (no svc in this ns)
-    #     svc_list = ["No customer service found"]
-
-    return svc_list
+    return svc_list  # Note that svc_list maybe empty
 
 
 def get_ep_list(ns, svc):
@@ -100,15 +97,17 @@ def get_ep_list(ns, svc):
     ep_list = []
     dport_list = []
     for slice in ENDPOINTS["items"]:
+        # make sure we select the slice with correct corresponding namespace and svc, if there not, return empty list
         if slice["metadata"]["namespace"] == ns and slice["metadata"].get("ownerReferences"):
             if slice["metadata"]["ownerReferences"][0]["name"] == svc:
-                for ep in slice["endpoints"]:
+                for ep in slice["endpoints"]:  # extract ep's address, nodeName and name information
                     ep_list.append(
                         {"address": ep["addresses"][0], "nodeName": ep["nodeName"], "name": ep["targetRef"]["name"]})
-                for port in slice["ports"]:
+                for port in slice["ports"]:  # extract corresponding port and protocol information
                     dport_list.append({"port": str(port["port"]), "protocol": port["protocol"]})
                 break
 
+    # return endpoint list and destination port list at the same time
     return ep_list, dport_list
 
 
@@ -137,6 +136,7 @@ def main():
         # TODO: record time condition: time = ...
 
         copystr = ""
+        # extract IP address and dst port from the actual combobox list, user can input those info manually with '(...)'
         if pod1.find(" (") >= 0:
             copystr += '"Source Address" == "{}"; '.format(pod1[pod1.find(" (") + 2:-1])
         if pod2.find(" (") >= 0:
@@ -158,7 +158,7 @@ def main():
 
     def set_svc_list1(event):
         """
-        This function is to set svc list
+        This function is to set svc list of source
         """
         ns = cbl_ns1.get()
         svc_list = get_svc_list(ns)
@@ -167,7 +167,7 @@ def main():
         for svc_name in svc_list:
             health_mark = "♥ ---%     "
             if SVC_HEALTH.get(ns):
-                if SVC_HEALTH[ns].get(svc_name):
+                if SVC_HEALTH[ns].get(svc_name):  # to see if there is corresponding ns and svc in health database
                     health_mark = "♥ " + "%03d" % int(SVC_HEALTH[ns][svc_name]) + "%     "
             new_svc_list.append(health_mark + svc_name)
 
@@ -178,7 +178,7 @@ def main():
 
     def set_svc_list2(event):
         """
-        This function is to set svc list
+        This function is to set svc list of destination
         """
         ns = cbl_ns2.get()
         svc_list = get_svc_list(ns)
@@ -190,18 +190,18 @@ def main():
             if SVC_HEALTH.get(ns):
                 if SVC_HEALTH[ns].get(svc_name):
                     health_mark = "♥ " + "%03d" % int(SVC_HEALTH[ns][svc_name]) + "%"
-            if SVC_RELATION.get(cbl_ns1.get()):
-                if SVC_RELATION[cbl_ns1.get()].get(cbl_svc1.get()[11:]):
-                    if svc_name in SVC_RELATION[cbl_ns1.get()][cbl_svc1.get()[11:]]:
+            if SVC_RELATION.get(cbl_ns1.get()):  # mark relationship based on source svc
+                if SVC_RELATION[cbl_ns1.get()].get(cbl_svc1.get()[11:]):  # if source svc exists in relation database
+                    if svc_name in SVC_RELATION[cbl_ns1.get()][cbl_svc1.get()[11:]]:  # AND it's related to dst svc
                         relation_mark = " √   "
 
             new_svc_list.append(health_mark + relation_mark + svc_name)
 
         cbl_svc2["values"] = ["                  ------  Please select a service  ------"] + new_svc_list
         cbl_svc2.current(0)
-        cbl_pod2["values"] = ["                    ------  Please select a pod  ------"]
+        cbl_pod2["values"] = ["                    ------  Please select a pod  ------"]  # reset last selection
         cbl_pod2.current(0)
-        cbl_port["values"] = ["                 ------  Please select a dest port  ------"]
+        cbl_port["values"] = ["                 ------  Please select a dest port  ------"]  # reset last selction
         cbl_port.current(0)
 
     def set_pod_list1(event):
@@ -212,8 +212,8 @@ def main():
         pod_list = []
         for ep in ep_list:
             pod_list.append(ep["name"] + " @ " + ep["nodeName"] + " (" + ep["address"] + ")")
-        if pod_list:
-            cbl_pod1["values"] = pod_list  # TODO: program pod list to reflect health score
+        if pod_list:  # if pod list is not empty
+            cbl_pod1["values"] = pod_list  # TODO: program pod list to reflect pod health score
             cbl_pod1.current(0)
 
     def set_pod_list2(event):
@@ -228,9 +228,8 @@ def main():
         if pod_list:
             cbl_pod2["values"] = pod_list  # TODO: program pod list to reflect health score
             cbl_pod2.current(0)
-        cbl_port["values"] = ["                 ------  Please select a dest port  ------"]
-        cbl_port.current(0)
 
+        # set destination pod's port
         dstport_list = []
         for port in port_list:
             dstport_list.append(port["port"] + " (" + port["protocol"] + ")")
@@ -238,52 +237,52 @@ def main():
 
     # window is the obj name
     window = tk.Tk()
-    window.title('Copy Flow Context to NDI v0.1 by Wei Hang')
+    window.title('Copy Flow Context to NDI v0.2 by Wei Hang')
     window.geometry('1120x390')
 
     # Lables on the left
     lb_fr = tk.Label(window, width=16, font=("Arial", 10), anchor='e', text="From:")
     lb_fr.place(x=0, y=50, anchor='nw')
 
+    lb_time = tk.Label(window, width=16, font=("Arial", 10), anchor='e', text="Record Time:")
+    lb_time.place(x=0, y=100, anchor='nw')
+
     lb_ns1 = tk.Label(window, width=16, font=("Arial", 10), anchor='e', text="Namespace:")
-    lb_ns1.place(x=0, y=100, anchor='nw')
+    lb_ns1.place(x=0, y=150, anchor='nw')
 
     lb_svc1 = tk.Label(window, width=16, font=("Arial", 10), anchor='e', text="Service:")
-    lb_svc1.place(x=0, y=150, anchor='nw')
+    lb_svc1.place(x=0, y=200, anchor='nw')
 
     lb_pod1 = tk.Label(window, width=16, font=("Arial", 10), anchor='e', text="Pod (IP address):")
-    lb_pod1.place(x=0, y=200, anchor='nw')
-
-    lb_time = tk.Label(window, width=16, font=("Arial", 10), anchor='e', text="Record Time:")
-    lb_time.place(x=0, y=250, anchor='nw')
+    lb_pod1.place(x=0, y=250, anchor='nw')
 
     # Combo Box Lists on the left
     cbl_fr = ttk.Combobox(window, font=("Arial", 10), width=50)
-    cbl_fr["values"] = ["Internal service", "External", "NodePort service", "Load Balancer service"]  # TODO
+    cbl_fr["values"] = ["Internal service", "External", "NodePort service", "Load Balancer"]  # TODO
     cbl_fr.current(0)
     cbl_fr.place(x=150, y=50, anchor='nw')
+
+    cbl_time = ttk.Combobox(window, font=("Arial", 10), width=50)
+    cbl_time["values"] = ["Live"] + TIME
+    cbl_time.current(0)
+    cbl_time.place(x=150, y=100, anchor='nw')
 
     cbl_ns1 = ttk.Combobox(window, font=("Arial", 10), width=50)
     cbl_ns1["values"] = ["                  ------  Please select a namespace  ------"] + get_ns_list()
     cbl_ns1.current(0)
     cbl_ns1.bind("<<ComboboxSelected>>", set_svc_list1)
-    cbl_ns1.place(x=150, y=100, anchor='nw')
+    cbl_ns1.place(x=150, y=150, anchor='nw')
 
     cbl_svc1 = ttk.Combobox(window, font=("Arial", 10), width=50)
     cbl_svc1["values"] = ["                  ------  Please select a service  ------"]
     cbl_svc1.current(0)
     cbl_svc1.bind("<<ComboboxSelected>>", set_pod_list1)
-    cbl_svc1.place(x=150, y=150, anchor='nw')
+    cbl_svc1.place(x=150, y=200, anchor='nw')
 
     cbl_pod1 = ttk.Combobox(window, font=("Arial", 10), width=50)
     cbl_pod1["values"] = ["                    ------  Please select a pod  ------"]
     cbl_pod1.current(0)
-    cbl_pod1.place(x=150, y=200, anchor='nw')
-
-    cbl_time = ttk.Combobox(window, font=("Arial", 10), width=50)
-    cbl_time["values"] = ["Live"] + TIME
-    cbl_time.current(0)
-    cbl_time.place(x=150, y=250, anchor='nw')
+    cbl_pod1.place(x=150, y=250, anchor='nw')
 
     # Lables on the right
     lb_to = tk.Label(window, width=16, font=("Arial", 10), anchor='e', text="To:")
