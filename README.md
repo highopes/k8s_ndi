@@ -16,13 +16,13 @@ This tool is a standalone tool spun off from the multi-cloud visualization compo
 
 * **'From' and 'To'**: The source and destination of a flow. Select different type will affect the display of subsequent content.
 
- - **Internal service:** the service which has the type of Cluster IP
+    - **Internal service:** the service which has the type of Cluster IP
 
- - **External:** the subnet/addresses outside the cluster
+    - **External:** the subnet/addresses outside the cluster
 
- - **NodePort service:** the service which has the type of NodePort
+    - **NodePort service:** the service which has the type of NodePort
 
- - **Load Balancer:** the load balancer address when use the service which has the type of LoadBalancer
+    - **Load Balancer:** the load balancer address when use the service which has the type of LoadBalancer
 
 * **Record Time:** the time of the data record (Currently only support 'Live')
 
@@ -30,9 +30,9 @@ This tool is a standalone tool spun off from the multi-cloud visualization compo
 
 * **Service:** the Kubernetes service name
 
- - **♥ symbol:** the health score expressed as a percentage
+    - **♥ symbol:** the health score expressed as a percentage
 
- - **√ symbol:** a communication relationship with the source service is detected
+    - **√ symbol:** a communication relationship with the source service is detected
 
 * **Pod (IP address):** the pod name @ node name (pod IP address). If you want to input IP address manually (not recommended), you need to keep at least one pair of brackets
 
