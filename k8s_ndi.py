@@ -237,7 +237,7 @@ def main():
 
     # window is the obj name
     window = tk.Tk()
-    window.title('Copy Flow Context to NDI v0.2 by Wei Hang')
+    window.title('K8S Flow Visibility v0.2 by Wei Hang')
     window.geometry('1120x390')
 
     # Lables on the left
