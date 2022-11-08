@@ -235,8 +235,9 @@ def main():
         if cbl_to.get() == "Internal service":
             cbl_pod2["values"] = ["                    ------  Please select a pod  ------"]  # reset last selection
             cbl_pod2.current(0)
-            cbl_port["values"] = ["                 ------  Please select a dest port  ------"]  # reset last selction
-            cbl_port.current(0)
+
+        cbl_port["values"] = ["                 ------  Please select a dest port  ------"]  # reset last selection
+        cbl_port.current(0)
 
     def set_pod_list1(event):
         """
@@ -350,7 +351,7 @@ def main():
 
     # window is the obj name
     window = tk.Tk()
-    window.title('K8S Flow Visibility v0.3 by Wei Hang')
+    window.title('Cloud-Native Flow Visibility v0.3 by Wei Hang')
     window.geometry('1120x390')
 
     # Labels on the left
