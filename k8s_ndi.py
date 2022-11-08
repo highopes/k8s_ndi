@@ -79,10 +79,17 @@ def get_svc_list(ns, type):
     """
     svc_list = []
 
+    if type == "NodePort service (2nd hop source)":
+        newtype = "NodePort service"
+    elif type == "NodePort service (2nd hop dest)":
+        newtype = "Internal service"
+    else:
+        newtype = type
+
     for svc_line in SERVICES:
         svc_line_list = svc_line.split()
         if ns == svc_line_list[0]:
-            if type == "NodePort service" and svc_line_list[2] == "NodePort" or type == "Internal service":
+            if newtype == "NodePort service" and svc_line_list[2] == "NodePort" or newtype == "Internal service":
                 svc_list.append(svc_line_list[1])
 
     return svc_list  # Note that list maybe empty
@@ -206,8 +213,9 @@ def main():
 
         cbl_svc1["values"] = ["                  ------  Please select a service  ------"] + new_svc_list
         cbl_svc1.current(0)
-        cbl_pod1["values"] = ["                    ------  Please select a pod  ------"]
-        cbl_pod1.current(0)
+        if cbl_fr.get() == "Internal service":
+            cbl_pod1["values"] = ["                    ------  Please select a pod  ------"]
+            cbl_pod1.current(0)
 
     def set_svc_list2(event):
         """
@@ -232,7 +240,7 @@ def main():
 
         cbl_svc2["values"] = ["                  ------  Please select a service  ------"] + new_svc_list
         cbl_svc2.current(0)
-        if cbl_to.get() == "Internal service":
+        if cbl_to.get() == "Internal service" or cbl_to.get() == "NodePort service (2nd hop dest)":
             cbl_pod2["values"] = ["                    ------  Please select a pod  ------"]  # reset last selection
             cbl_pod2.current(0)
 
@@ -243,19 +251,20 @@ def main():
         """
         This function is to set pod list 1
         """
-        ep_list, port_list = get_ep_list(cbl_ns1.get(), cbl_svc1.get()[11:])
-        pod_list = []
-        for ep in ep_list:
-            pod_list.append(ep["name"] + " @ " + ep["nodeName"] + " (" + ep["address"] + ")")
-        if pod_list:  # if pod list is not empty
-            cbl_pod1["values"] = pod_list  # TODO: program pod list to reflect pod health score
-            cbl_pod1.current(0)
+        if cbl_fr.get() == "Internal service":
+            ep_list, port_list = get_ep_list(cbl_ns1.get(), cbl_svc1.get()[11:])
+            pod_list = []
+            for ep in ep_list:
+                pod_list.append(ep["name"] + " @ " + ep["nodeName"] + " (" + ep["address"] + ")")
+            if pod_list:  # if pod list is not empty
+                cbl_pod1["values"] = pod_list  # TODO: program pod list to reflect pod health score
+                cbl_pod1.current(0)
 
     def svc2_bind(event):
         """
         This function is the action binding to svc2
         """
-        if cbl_to.get() == "Internal service":
+        if cbl_to.get() == "Internal service" or cbl_to.get() == "NodePort service (2nd hop dest)":
             set_pod_list2()
         elif cbl_to.get() == "NodePort service":
             set_nodeport(cbl_ns2.get(), cbl_svc2.get()[11:])
@@ -307,6 +316,13 @@ def main():
             cbl_ns1.config(state='disabled')
             cbl_svc1.config(state='disabled')
             cbl_pod1["values"] = ["               ------  Please input an IP address  ------"]
+        elif label == "NodePort service (2nd hop source)":
+            lb_ns1.config(state='normal')
+            lb_svc1.config(state='normal')
+            lb_pod1.config(text="Node IP:")
+            cbl_ns1.config(state='normal')
+            cbl_svc1.config(state='normal')
+            cbl_pod1["values"] = ["                    ------  Please select a node  ------"] + NODES
 
         cbl_pod1.current(0)
         cbl_ns1["values"] = ["                  ------  Please select a namespace  ------"] + NAMESPACES
@@ -319,20 +335,13 @@ def main():
         This function is to set dynamic ui on the right
         """
         label = cbl_to.get()
-        if label == "Internal service":
+        if label == "Internal service" or label == "NodePort service (2nd hop dest)":
             lb_ns2.config(state='normal')
             lb_svc2.config(state='normal')
             lb_pod2.config(text="Pod (IP address):")
             cbl_ns2.config(state='normal')
             cbl_svc2.config(state='normal')
             cbl_pod2["values"] = ["                    ------  Please select a pod  ------"]
-        elif label == "External":
-            lb_ns2.config(state='disabled')
-            lb_svc2.config(state='disabled')
-            lb_pod2.config(text="External IP:")
-            cbl_ns2.config(state='disabled')
-            cbl_svc2.config(state='disabled')
-            cbl_pod2["values"] = ["               ------  Please input an IP address  ------"]
         elif label == "NodePort service":
             lb_ns2.config(state='normal')
             lb_svc2.config(state='normal')
@@ -372,7 +381,7 @@ def main():
 
     # Combo Box Lists on the left
     cbl_fr = ttk.Combobox(window, font=("Arial", 10), width=50)
-    cbl_fr["values"] = ["Internal service", "External", "NodePort service (inbound 2nd/3rd hop)",
+    cbl_fr["values"] = ["Internal service", "External", "NodePort service (2nd hop source)",
                         "Load Balancer (inbound 2nd/3rd hop)"]  # TODO
     cbl_fr.current(0)
     cbl_fr.bind("<<ComboboxSelected>>", set_ui_fr)
@@ -419,7 +428,8 @@ def main():
 
     # Combo Box Lists on the right
     cbl_to = ttk.Combobox(window, font=("Arial", 10), width=50)
-    cbl_to["values"] = ["Internal service", "External", "NodePort service", "Load Balancer service"]  # TODO
+    cbl_to["values"] = ["Internal service", "NodePort service", "NodePort service (2nd hop dest)",
+                        "Load Balancer service"]  # TODO
     cbl_to.current(0)
     cbl_to.bind("<<ComboboxSelected>>", set_ui_to)
     cbl_to.place(x=700, y=50, anchor='nw')
